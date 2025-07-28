@@ -1,0 +1,165 @@
+<html><head>
+    <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #24292e; }
+    pre, code { background: #f6f8fa; border-radius: 3px; }
+    pre { padding: 8px; overflow-x: auto; }
+    code { padding: 2px 4px; }
+    h1, h2, h3, h4, h5, h6 { font-weight: 600; }
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #dfe2e5; padding: 6px 13px; }
+    </style>
+    
+    <meta charset="utf-8">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+    setTimeout(function() {
+      if (window.mermaid) {
+        mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+      }
+    }, 500);
+    </script>
+    </head><body><p>Based on the provided files, it's clear this is a Python port of the original Perl Starman server. The codebase itself seems to be missing the core Python source files (<code>.py</code>), but the <code>pyproject.toml</code>, <code>README.md</code>, and <code>CHANGELOG.md</code> provide definitive clues about its structure and design. The architecture described below is inferred from these packaging and documentation files, using the original Perl version's design and common patterns for Python-based preforking WSGI servers as a model.</p>
+
+<h2>Architectural Overview</h2>
+
+<p>Starman is a high-performance, preforking WSGI (Web Server Gateway Interface) web server designed for UNIX-like operating systems. Its architecture is centered around a classic <strong>preforking model</strong>, where a master process manages a pool of worker processes. This design aims to provide high concurrency and robustness while maintaining a small memory footprint, especially when preloading an application.</p>
+
+<h3>Core Design Principles</h3>
+
+<ul>
+<li><strong>High Performance</strong>: Leverages the fast <code>httptools</code> library, a Python binding for the Node.js HTTP parser, to minimize the overhead of parsing incoming HTTP requests.</li>
+<li><strong>Preforking Model</strong>: A single master process binds to the network socket(s) and forks a configurable number of child worker processes <em>before</em> accepting any connections. This reduces the latency of handling a new request, as a worker is always ready.</li>
+<li><strong>Process Management &amp; Signal Handling</strong>: The master process is responsible for managing the lifecycle of the worker pool. It handles OS signals to allow for graceful restarts (<code>HUP</code>), graceful shutdowns (<code>QUIT</code>), and dynamic scaling of the worker pool (<code>TTIN</code>/<code>TTOU</code>).</li>
+<li><strong>WSGI Compatibility</strong>: It is designed to run any standard WSGI-compliant Python web application or framework.</li>
+<li><strong>Memory Efficiency</strong>: By preloading the application in the master process before forking (<code>--preload-app</code>), workers can share the application's memory pages through the kernel's copy-on-write (CoW) mechanism, significantly reducing overall memory consumption.</li>
+</ul>
+
+<h3>Architecture Diagram</h3>
+
+<div class="mermaid">graph TD
+    subgraph "User & OS"
+        User["User"] -- "starman myapp:app" --> CLI
+        CLI["CLI Entrypoint<br/>(starman.cli.main)"]
+        Signals["OS Signals<br/>(HUP, QUIT, TTIN, TTOU)"]
+    end
+
+    subgraph "Starman Server"
+        Master["Master Process"]
+        subgraph "Worker Pool"
+            Worker1["Worker Process 1"]
+            Worker2["Worker Process 2"]
+            WorkerN["Worker Process N"]
+        end
+        Socket["Shared Network Socket<br/>(TCP or UNIX)"]
+    end
+
+    subgraph "Client & Application"
+        Client["HTTP Client"]
+        App["WSGI Application<br/>(myapp:app)"]
+    end
+
+    %% Flows
+    CLI --> Master
+    Signals --> Master
+
+    Master -- "Binds" --> Socket
+    Master -- "Forks" --> Worker1
+    Master -- "Forks" --> Worker2
+    Master -- "Forks" --> WorkerN
+
+    %% Corrected Link: A labeled link cannot target multiple nodes with '&'.
+    %% It has been split into separate links.
+    Master -- "Manages Workers &<br/>Reaps Dead Children" --> Worker1
+    Master --> Worker2
+    Master --> WorkerN
+
+    Client -- "1. HTTP Request" --> Socket
+    Socket -- "2. Accepts Connection" --> Worker1
+    Worker1 -- "3. Parses Request (httptools)" --> App
+    App -- "4. Returns Response" --> Worker1
+    Worker1 -- "5. Formats & Sends HTTP Response" --> Socket
+    Socket -- "6. Transmits to Client" --> Client
+
+    style Master fill:#c9f,stroke:#333,stroke-width:2px
+    style Worker1 fill:#9cf,stroke:#333,stroke-width:2px
+    style Worker2 fill:#9cf,stroke:#333,stroke-width:2px
+    style WorkerN fill:#9cf,stroke:#333,stroke-width:2px
+
+</div>
+
+<h3>Core Components</h3>
+
+<p>The codebase can be logically divided into the following components:</p>
+
+<ol>
+<li><p><strong>CLI Entrypoint (<code>starman.cli</code>)</strong></p>
+
+<ul>
+<li><strong>Purpose</strong>: To parse command-line arguments and initiate the server.</li>
+<li><strong>Implementation</strong>: As defined in <code>pyproject.toml</code> (<code>[project.scripts]</code>), the <code>starman</code> command executes the <code>main</code> function in the <code>starman.cli</code> module. This module uses Python's <code>argparse</code> (or a similar library) to handle options like <code>--workers</code>, <code>--listen</code>, and <code>--preload-app</code>. It is responsible for loading the WSGI application object and passing the configuration to the Master Process.</li>
+</ul></li>
+<li><p><strong>Master Process (<code>starman.server.Master</code>)</strong></p>
+
+<ul>
+<li><strong>Purpose</strong>: The central coordinator and process manager. It does not handle requests itself.</li>
+<li><strong>Responsibilities</strong>:
+<ul>
+<li><strong>Socket Binding</strong>: Opens one or more TCP or UNIX domain sockets based on the <code>--listen</code> arguments and listens for incoming connections.</li>
+<li><strong>Worker Management</strong>: Forks an initial pool of worker processes. It maintains the desired number of workers, replacing any that die unexpectedly.</li>
+<li><strong>Signal Handling</strong>: Sets up handlers for OS signals:
+<ul>
+<li><code>HUP</code>: Instructs all workers to finish their current request and then exit gracefully. The master then forks new workers to replace them, allowing for code reloads.</li>
+<li><code>QUIT</code>: Instructs workers to shut down gracefully and then exits itself.</li>
+<li><code>TTIN</code>/<code>TTOU</code>: Increases or decreases the number of active worker processes.</li>
+</ul></li>
+<li><strong>Application Preloading</strong>: If <code>--preload-app</code> is used, the master imports and loads the WSGI application <em>before</em> forking.</li>
+</ul></li>
+</ul></li>
+<li><p><strong>Worker Process (<code>starman.server.Worker</code>)</strong></p>
+
+<ul>
+<li><strong>Purpose</strong>: To accept connections and process HTTP requests. Each worker is a separate OS process.</li>
+<li><strong>Responsibilities</strong>:
+<ul>
+<li><strong>Accept Loop</strong>: Enters a loop to <code>accept()</code> new connections from the shared socket descriptor inherited from the master. The OS kernel distributes incoming connections among the waiting workers.</li>
+<li><strong>Request Handling</strong>: For each connection:
+<ol>
+<li>Reads raw HTTP data from the socket.</li>
+<li>Feeds the data into the <code>httptools</code> parser.</li>
+<li>Using callbacks from the parser, it constructs the WSGI <code>environ</code> dictionary.</li>
+<li>It defines the <code>start_response</code> callable, as required by the WSGI spec.</li>
+<li>It invokes the user's WSGI application: <code>app(environ, start_response)</code>.</li>
+<li>It takes the status, headers, and body returned by the application.</li>
+<li>It formats this into a valid HTTP response and writes it back to the socket.</li>
+</ol></li>
+<li><strong>Keep-Alive</strong>: Manages HTTP keep-alive by waiting for another request on the same connection if the client supports it, before looping back to <code>accept()</code>.</li>
+</ul></li>
+</ul></li>
+<li><p><strong>HTTP Parsing (<code>httptools</code> Integration)</strong></p>
+
+<ul>
+<li><strong>Purpose</strong>: Fast and efficient HTTP request parsing.</li>
+<li><strong>Implementation</strong>: Instead of a pure-Python parser, Starman relies on <code>httptools</code>. The Worker component would implement a protocol class with methods like <code>on_url</code>, <code>on_header</code>, <code>on_body</code>, and <code>on_message_complete</code>. The <code>httptools.HttpRequestParser</code> is fed the raw socket data, and it calls these methods as it parses the stream, allowing the worker to build the <code>environ</code> dictionary efficiently.</li>
+</ul></li>
+</ol>
+
+<h3>Request Lifecycle</h3>
+
+<ol>
+<li>The <strong>Master</strong> process starts, binds to a socket (e.g., <code>0.0.0.0:8080</code>), and forks a pool of <strong>Worker</strong> processes.</li>
+<li>Each <strong>Worker</strong> process enters a loop, blocking on an <code>accept()</code> call on the shared socket.</li>
+<li>A <strong>Client</strong> sends an HTTP request to <code>0.0.0.0:8080</code>. The OS kernel wakes up one of the idle <strong>Workers</strong> and gives it the connection.</li>
+<li>The selected <strong>Worker</strong> reads the request from the socket.</li>
+<li>The raw request data is fed to the <strong><code>httptools</code> parser</strong>.</li>
+<li>The parser invokes callbacks within the worker, which populates the WSGI <code>environ</code> dictionary. The request body is read into a temporary buffer or file-like object and assigned to <code>environ['wsgi.input']</code>.</li>
+<li>The <strong>Worker</strong> calls the user's <strong>WSGI Application</strong> with the <code>environ</code> dictionary.</li>
+<li>The <strong>WSGI Application</strong> processes the request and returns the status, headers, and response body.</li>
+<li>The <strong>Worker</strong> formats the data into an HTTP response string.</li>
+<li>The <strong>Worker</strong> writes the response back to the client socket and closes it (or keeps it alive for the next request).</li>
+<li>The <strong>Worker</strong> goes back to step 2, waiting for the next connection.</li>
+</ol>
+
+<blockquote>
+  <p><strong>Warning:</strong> The architecture diagram could not be fixed and may not render correctly.</p>
+</blockquote>
+</body></html>

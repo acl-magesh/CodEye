@@ -1,0 +1,182 @@
+2025-07-28 14:57:23,370 INFO: Starting CLI process
+2025-07-28 14:57:23,380 INFO: CodeEyeEngine initialized with provider=gemini, model=gemini-2.5-pro, ignore_gitignore=False, exclude_pattern=None
+2025-07-28 14:57:23,380 INFO: Initialized CodeEyeEngine with provider=gemini, model=gemini-2.5-pro
+2025-07-28 14:57:23,380 INFO: Describing codebase in directory: ..\..\input_code_base\starman
+2025-07-28 14:57:23,390 INFO: Processing chunk 0: 40 files, files: ['CHANGELOG.md', 'LICENSE', 'pyproject.toml', 'README.md', 'Starman-master\\.gitignore', 'Starman-master\\.mailmap', 'Starman-master\\.travis.yml', 'Starman-master\\Build.PL', 'Starman-master\\Changes', 'Starman-master\\cpanfile', 'Starman-master\\dist.ini', 'Starman-master\\LICENSE', 'Starman-master\\META.json', 'Starman-master\\README.md', 'Starman-master\\.github\\workflows\\linux.yml', 'Starman-master\\lib\\Starman.pm', 'Starman-master\\lib\\HTTP\\Server\\PSGI\\Net\\Server\\PreFork.pm', 'Starman-master\\lib\\Plack\\Handler\\Starman.pm', 'Starman-master\\lib\\Starman\\Server.pm', 'Starman-master\\script\\starman', 'Starman-master\\t\\00_compile.t', 'Starman-master\\t\\chunked_req.t', 'Starman-master\\t\\chunked_termination.t', 'Starman-master\\t\\chunked_zero_length.t', 'Starman-master\\t\\early-hints.t', 'Starman-master\\t\\eintr.t', 'Starman-master\\t\\expect.t', 'Starman-master\\t\\findbin.psgi', 'Starman-master\\t\\harakiri.t', 'Starman-master\\t\\lf_only_request.t', 'Starman-master\\t\\no_chunked_head.t', 'Starman-master\\t\\rand.psgi', 'Starman-master\\t\\single_zero.t', 'Starman-master\\t\\ssl.t', 'Starman-master\\t\\ssl_ca.pem', 'Starman-master\\t\\ssl_key.pem', 'Starman-master\\t\\ssl_largebody.t', 'Starman-master\\t\\suite.t', 'Starman-master\\xt\\release\\findbin.t', 'Starman-master\\xt\\release\\rand.t']
+2025-07-28 14:57:23,397 INFO: Estimated tokens for chunk 0: 27842
+2025-07-28 14:57:23,567 INFO: files-to-prompt completed for chunk 0, file_count=35, prompt length=112865
+2025-07-28 14:57:23,567 INFO: Running LLM command for chunk 0: llm -m gemini-2.5-pro -s Provide a detailed architectural overview of the codebase as markdown, and always include an architecture diagram using mermaid syntax as part of the output.
+2025-07-28 14:58:21,133 INFO: Output written to file: C:\Users\roshnia\PycharmProjects\PythonAI\CodEye\src\output_files\starman_architecture.md
+2025-07-28 14:58:21,134 INFO: System prompt at PDF check: Provide a detailed architectural overview of the codebase as markdown, and always include an architecture diagram using mermaid syntax as part of the output.
+2025-07-28 14:58:21,134 INFO: Checking for mermaid code block in: C:\Users\roshnia\PycharmProjects\PythonAI\CodEye\src\output_files\starman_architecture.md
+2025-07-28 14:58:21,134 INFO: Mermaid diagram found in markdown. Proceeding to PDF conversion.
+2025-07-28 14:58:21,156 INFO: [Mermaid] Original block:
+graph TD
+    subgraph "User & OS"
+        User["User"] -- "starman myapp:app" --> CLI
+        CLI["CLI Entrypoint<br/>(starman.cli.main)"]
+        Signals["OS Signals<br/>(HUP, QUIT, TTIN, TTOU)"]
+    end
+
+    subgraph "Starman Server"
+        Master["Master Process"]
+        subgraph "Worker Pool"
+            Worker1["Worker Process 1"]
+            Worker2["Worker Process 2"]
+            WorkerN["Worker Process N"]
+        end
+        Socket["Shared Network Socket<br/>(TCP or UNIX)"]
+    end
+    
+    subgraph "Client & Application"
+        Client["HTTP Client"]
+        App["WSGI Application<br/>(myapp:app)"]
+    end
+
+    %% Flows
+    User --> CLI
+    CLI --> Master
+    Signals --> Master
+
+    Master -- "Binds" --> Socket
+    Master -- "Forks" --> Worker1
+    Master -- "Forks" --> Worker2
+    Master -- "Forks" --> WorkerN
+    Master -- "Manages Workers &<br/>Reaps Dead Children" --> Worker1 & Worker2 & WorkerN
+
+    Client -- "1. HTTP Request" --> Socket
+    Socket -- "2. Accepts Connection" --> Worker1
+    Worker1 -- "3. Parses Request (httptools)" --> App
+    App -- "4. Returns Response" --> Worker1
+    Worker1 -- "5. Formats & Sends HTTP Response" --> Socket
+    Socket -- "6. Transmits to Client" --> Client
+    
+    style Master fill:#c9f,stroke:#333,stroke-width:2px
+    style Worker1 fill:#9cf,stroke:#333,stroke-width:2px
+    style Worker2 fill:#9cf,stroke:#333,stroke-width:2px
+    style WorkerN fill:#9cf,stroke:#333,stroke-width:2px
+
+---
+2025-07-28 14:59:18,462 INFO: [Mermaid] After first LLM fix:
+graph TD
+    subgraph "User & OS"
+        User["User"] -- "starman myapp:app" --> CLI
+        CLI["CLI Entrypoint<br/>(starman.cli.main)"]
+        Signals["OS Signals<br/>(HUP, QUIT, TTIN, TTOU)"]
+    end
+
+    subgraph "Starman Server"
+        Master["Master Process"]
+        subgraph "Worker Pool"
+            Worker1["Worker Process 1"]
+            Worker2["Worker Process 2"]
+            WorkerN["Worker Process N"]
+        end
+        Socket["Shared Network Socket<br/>(TCP or UNIX)"]
+    end
+    
+    subgraph "Client & Application"
+        Client["HTTP Client"]
+        App["WSGI Application<br/>(myapp:app)"]
+    end
+
+    %% Flows
+    CLI --> Master
+    Signals --> Master
+
+    Master -- "Binds" --> Socket
+    Master -- "Forks" --> Worker1
+    Master -- "Forks" --> Worker2
+    Master -- "Forks" --> WorkerN
+    
+    %% Corrected Link: A labeled link cannot target multiple nodes with '&'.
+    %% It has been split into separate links.
+    Master -- "Manages Workers &<br/>Reaps Dead Children" --> Worker1
+    Master --> Worker2
+    Master --> WorkerN
+
+    Client -- "1. HTTP Request" --> Socket
+    Socket -- "2. Accepts Connection" --> Worker1
+    Worker1 -- "3. Parses Request (httptools)" --> App
+    App -- "4. Returns Response" --> Worker1
+    Worker1 -- "5. Formats & Sends HTTP Response" --> Socket
+    Socket -- "6. Transmits to Client" --> Client
+    
+    style Master fill:#c9f,stroke:#333,stroke-width:2px
+    style Worker1 fill:#9cf,stroke:#333,stroke-width:2px
+    style Worker2 fill:#9cf,stroke:#333,stroke-width:2px
+    style WorkerN fill:#9cf,stroke:#333,stroke-width:2px
+
+---
+2025-07-28 14:59:32,600 INFO: Markdown converted to PDF: ('C:\\Users\\roshnia\\PycharmProjects\\PythonAI\\CodEye\\src\\output_files\\starman_architecture.html', 'C:\\Users\\roshnia\\PycharmProjects\\PythonAI\\CodEye\\src\\output_files\\starman_architecture.pdf')
+2025-07-28 14:59:32,600 INFO: Codebase described: return_code=0, file_count=35
+2025-07-28 14:59:32,601 INFO: Analyzed 35 files from C:\Users\roshnia\PycharmProjects\PythonAI\input_code_base\starman
+2025-07-28 14:59:32,601 INFO: 
+2025-07-28 15:03:16,025 INFO: Starting CLI process
+2025-07-28 15:03:16,035 INFO: CodeEyeEngine initialized with provider=gemini, model=gemini-2.5-pro, ignore_gitignore=False, exclude_pattern=None
+2025-07-28 15:03:16,035 INFO: Initialized CodeEyeEngine with provider=gemini, model=gemini-2.5-pro
+2025-07-28 15:03:16,035 INFO: Describing codebase in directory: .\input_code_base\starman
+2025-07-28 15:03:16,035 ERROR: Directory does not exist: .\input_code_base\starman
+2025-07-28 15:03:16,035 INFO: Codebase described: return_code=1, file_count=0
+2025-07-28 15:05:25,107 INFO: Starting CLI process
+2025-07-28 15:05:25,118 INFO: CodeEyeEngine initialized with provider=gemini, model=gemini-2.5-pro, ignore_gitignore=False, exclude_pattern=None
+2025-07-28 15:05:25,118 INFO: Initialized CodeEyeEngine with provider=gemini, model=gemini-2.5-pro
+2025-07-28 15:05:25,118 INFO: Describing codebase in directory: ..\..\input_code_base\
+2025-07-28 15:05:25,129 INFO: Processing chunk 0: 40 files, files: ['Starman\\CHANGELOG.md', 'Starman\\LICENSE', 'Starman\\pyproject.toml', 'Starman\\README.md', 'Starman\\Starman-master\\.gitignore', 'Starman\\Starman-master\\.mailmap', 'Starman\\Starman-master\\.travis.yml', 'Starman\\Starman-master\\Build.PL', 'Starman\\Starman-master\\Changes', 'Starman\\Starman-master\\cpanfile', 'Starman\\Starman-master\\dist.ini', 'Starman\\Starman-master\\LICENSE', 'Starman\\Starman-master\\META.json', 'Starman\\Starman-master\\README.md', 'Starman\\Starman-master\\.github\\workflows\\linux.yml', 'Starman\\Starman-master\\lib\\Starman.pm', 'Starman\\Starman-master\\lib\\HTTP\\Server\\PSGI\\Net\\Server\\PreFork.pm', 'Starman\\Starman-master\\lib\\Plack\\Handler\\Starman.pm', 'Starman\\Starman-master\\lib\\Starman\\Server.pm', 'Starman\\Starman-master\\script\\starman', 'Starman\\Starman-master\\t\\00_compile.t', 'Starman\\Starman-master\\t\\chunked_req.t', 'Starman\\Starman-master\\t\\chunked_termination.t', 'Starman\\Starman-master\\t\\chunked_zero_length.t', 'Starman\\Starman-master\\t\\early-hints.t', 'Starman\\Starman-master\\t\\eintr.t', 'Starman\\Starman-master\\t\\expect.t', 'Starman\\Starman-master\\t\\findbin.psgi', 'Starman\\Starman-master\\t\\harakiri.t', 'Starman\\Starman-master\\t\\lf_only_request.t', 'Starman\\Starman-master\\t\\no_chunked_head.t', 'Starman\\Starman-master\\t\\rand.psgi', 'Starman\\Starman-master\\t\\single_zero.t', 'Starman\\Starman-master\\t\\ssl.t', 'Starman\\Starman-master\\t\\ssl_ca.pem', 'Starman\\Starman-master\\t\\ssl_key.pem', 'Starman\\Starman-master\\t\\ssl_largebody.t', 'Starman\\Starman-master\\t\\suite.t', 'Starman\\Starman-master\\xt\\release\\findbin.t', 'Starman\\Starman-master\\xt\\release\\rand.t']
+2025-07-28 15:05:25,140 INFO: Estimated tokens for chunk 0: 27842
+2025-07-28 15:05:25,341 INFO: files-to-prompt completed for chunk 0, file_count=35, prompt length=113185
+2025-07-28 15:05:25,341 INFO: Running LLM command for chunk 0: llm -m gemini-2.5-pro -s Convert the codebase to python as requested. Output the result as markdown file blocks, where each code block starts with the language, followed by a comment line with the file path, and then the code content. For example: ```python
+# path/to/file.python
+...code...```. Ensure every file to be created or converted is represented as a separate code block in this format. Do not include any prose, explanation, or review comments—only the file blocks. For files like README, requirements.txt, setup.py, etc., generate them according to best practices for python. The README.md file must be comprehensive and include: - Project overview and purpose
+- Features and architecture summary
+- Setup and installation instructions (including prerequisites)
+- How to install dependencies
+- How to run the application (with example commands)
+- How to run tests (if applicable)
+- Usage examples
+- Contribution guidelines (if appropriate)
+- License section
+All supporting files should be adapted for the new language and ecosystem.
+2025-07-28 15:05:33,502 ERROR: Error from LLM command: Error: The model is overloaded. Please try again later.
+2025-07-28 15:05:33,503 ERROR: No output generated from any chunk. Check logs for details on each chunk's processing.
+2025-07-28 15:05:33,503 INFO: Codebase described: return_code=1, file_count=0
+2025-07-28 15:05:52,303 INFO: Starting CLI process
+2025-07-28 15:05:52,313 INFO: CodeEyeEngine initialized with provider=gemini, model=gemini-2.5-pro, ignore_gitignore=False, exclude_pattern=None
+2025-07-28 15:05:52,313 INFO: Initialized CodeEyeEngine with provider=gemini, model=gemini-2.5-pro
+2025-07-28 15:05:52,313 INFO: Describing codebase in directory: ..\..\input_code_base\
+2025-07-28 15:05:52,324 INFO: Processing chunk 0: 40 files, files: ['Starman\\CHANGELOG.md', 'Starman\\LICENSE', 'Starman\\pyproject.toml', 'Starman\\README.md', 'Starman\\Starman-master\\.gitignore', 'Starman\\Starman-master\\.mailmap', 'Starman\\Starman-master\\.travis.yml', 'Starman\\Starman-master\\Build.PL', 'Starman\\Starman-master\\Changes', 'Starman\\Starman-master\\cpanfile', 'Starman\\Starman-master\\dist.ini', 'Starman\\Starman-master\\LICENSE', 'Starman\\Starman-master\\META.json', 'Starman\\Starman-master\\README.md', 'Starman\\Starman-master\\.github\\workflows\\linux.yml', 'Starman\\Starman-master\\lib\\Starman.pm', 'Starman\\Starman-master\\lib\\HTTP\\Server\\PSGI\\Net\\Server\\PreFork.pm', 'Starman\\Starman-master\\lib\\Plack\\Handler\\Starman.pm', 'Starman\\Starman-master\\lib\\Starman\\Server.pm', 'Starman\\Starman-master\\script\\starman', 'Starman\\Starman-master\\t\\00_compile.t', 'Starman\\Starman-master\\t\\chunked_req.t', 'Starman\\Starman-master\\t\\chunked_termination.t', 'Starman\\Starman-master\\t\\chunked_zero_length.t', 'Starman\\Starman-master\\t\\early-hints.t', 'Starman\\Starman-master\\t\\eintr.t', 'Starman\\Starman-master\\t\\expect.t', 'Starman\\Starman-master\\t\\findbin.psgi', 'Starman\\Starman-master\\t\\harakiri.t', 'Starman\\Starman-master\\t\\lf_only_request.t', 'Starman\\Starman-master\\t\\no_chunked_head.t', 'Starman\\Starman-master\\t\\rand.psgi', 'Starman\\Starman-master\\t\\single_zero.t', 'Starman\\Starman-master\\t\\ssl.t', 'Starman\\Starman-master\\t\\ssl_ca.pem', 'Starman\\Starman-master\\t\\ssl_key.pem', 'Starman\\Starman-master\\t\\ssl_largebody.t', 'Starman\\Starman-master\\t\\suite.t', 'Starman\\Starman-master\\xt\\release\\findbin.t', 'Starman\\Starman-master\\xt\\release\\rand.t']
+2025-07-28 15:05:52,331 INFO: Estimated tokens for chunk 0: 27842
+2025-07-28 15:05:52,516 INFO: files-to-prompt completed for chunk 0, file_count=35, prompt length=113185
+2025-07-28 15:05:52,516 INFO: Running LLM command for chunk 0: llm -m gemini-2.5-pro -s Convert the codebase to python as requested. Output the result as markdown file blocks, where each code block starts with the language, followed by a comment line with the file path, and then the code content. For example: ```python
+# path/to/file.python
+...code...```. Ensure every file to be created or converted is represented as a separate code block in this format. Do not include any prose, explanation, or review comments—only the file blocks. For files like README, requirements.txt, setup.py, etc., generate them according to best practices for python. The README.md file must be comprehensive and include: - Project overview and purpose
+- Features and architecture summary
+- Setup and installation instructions (including prerequisites)
+- How to install dependencies
+- How to run the application (with example commands)
+- How to run tests (if applicable)
+- Usage examples
+- Contribution guidelines (if appropriate)
+- License section
+All supporting files should be adapted for the new language and ecosystem.
+2025-07-28 15:09:14,861 INFO: Output written to file: C:\Users\roshnia\PycharmProjects\PythonAI\CodEye\src\output_files\gemini_python_output.md
+2025-07-28 15:09:14,869 INFO: Markdown file blocks converted to files for: C:\Users\roshnia\PycharmProjects\PythonAI\CodEye\src\output_files\gemini_python_output.md
+2025-07-28 15:09:14,869 INFO: System prompt at PDF check: Convert the codebase to python as requested. Output the result as markdown file blocks, where each code block starts with the language, followed by a comment line with the file path, and then the code content. For example: ```python
+# path/to/file.python
+...code...```. Ensure every file to be created or converted is represented as a separate code block in this format. Do not include any prose, explanation, or review comments—only the file blocks. For files like README, requirements.txt, setup.py, etc., generate them according to best practices for python. The README.md file must be comprehensive and include: - Project overview and purpose
+- Features and architecture summary
+- Setup and installation instructions (including prerequisites)
+- How to install dependencies
+- How to run the application (with example commands)
+- How to run tests (if applicable)
+- Usage examples
+- Contribution guidelines (if appropriate)
+- License section
+All supporting files should be adapted for the new language and ecosystem.
+2025-07-28 15:09:14,869 INFO: Checking for mermaid code block in: C:\Users\roshnia\PycharmProjects\PythonAI\CodEye\src\output_files\gemini_python_output.md
+2025-07-28 15:09:14,870 WARNING: No mermaid diagram found in markdown. PDF may not include diagram.
+2025-07-28 15:09:45,274 INFO: Warning: Mermaid SVG not detected after 25s, exporting anyway.
+2025-07-28 15:09:45,956 INFO: Markdown converted to PDF: ('C:\\Users\\roshnia\\PycharmProjects\\PythonAI\\CodEye\\src\\output_files\\gemini_python_output.html', 'C:\\Users\\roshnia\\PycharmProjects\\PythonAI\\CodEye\\src\\output_files\\gemini_python_output.pdf')
+2025-07-28 15:09:45,956 INFO: Codebase described: return_code=0, file_count=35
+2025-07-28 15:09:45,956 INFO: Analyzed 35 files from C:\Users\roshnia\PycharmProjects\PythonAI\input_code_base
+2025-07-28 15:09:45,956 INFO: 
